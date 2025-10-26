@@ -71,34 +71,6 @@ class SpeechToText: RCTEventEmitter {
       case (.none, .none):
         fatalError("It should not be possible to have both a nil result and nil error.")
       }
-//      if let result = result {
-//        self.sendEvent(withName: "onSpeechResult", body: [
-//          "text": result.bestTranscription.formattedString,
-//        ])
-//
-//        if result.isFinal {
-//          self.audioEngine.stop()
-//          inputNode.removeTap(onBus: 0)
-//          self.recognitionTask = nil
-//          self.request = nil
-//
-//          if let name = self.currentFileName {
-//            self.sendEvent(withName: "onRecordingSaved", body: [
-//              "fileName": name,
-//              "filePath": self.getDocumentsDirectory().appendingPathComponent(name).path
-//            ])
-//          }
-//        }
-//      } else {
-//        if let error = error {
-//          self.sendEvent(withName: "onSpeechError", body: error.localizedDescription)
-//          self.audioEngine.stop()
-//          inputNode.removeTap(onBus: 0)
-//          self.recognitionTask = nil
-//          self.request = nil
-//          return
-//        }
-//      }
     }
 
     let format = inputNode.outputFormat(forBus: 0)
