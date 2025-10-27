@@ -101,7 +101,7 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext)
         }
       }
 
-      override fun onError(error: Int) { 
+      override fun onError(error: Int) {
         val errorMessage = when(error) {
           SpeechRecognizer.ERROR_NO_MATCH -> "No speech detected"
           SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech input timeout"
@@ -166,7 +166,7 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext)
           putString("fileName", currentFileName!!)
           putString("filePath", currentFilePath!!)
         }
-        sendEvent("onRecordingSaved", savedData)
+        sendEvent("onSpeechFinished", savedData)
       }
     } catch (e: Exception) {
       // Log error but don't crash

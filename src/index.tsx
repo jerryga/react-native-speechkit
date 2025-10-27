@@ -13,8 +13,8 @@ export interface SpeechErrorListener {
   (error: string): void;
 }
 
-export interface RecordingSavedListener {
-  (data: { fileName: string; filePath: string }): void;
+export interface SpeechFinishedListener {
+  (data: { finalResult: string; audioLocalPath: string }): void;
 }
 
 const speechEventEmitter = new NativeEventEmitter(NativeModules.SpeechToText);
@@ -28,26 +28,9 @@ export function stopRecording(): void {
 }
 
 export function addSpeechResultListener(listener: SpeechResultListener) {
-  return speechEventEmitter.addListener('onSpeechResult', (data) => {
-    let text: string = '';
-
-    if (typeof data === 'string') {
-      text = data;
-    } else if (typeof data === 'object' && data !== null) {
-      // Handle object with text property
-      if ('text' in data && typeof data.text === 'string') {
-        text = data.text;
-      } else {
-        // Fallback: stringify the object or use empty string
-        text = JSON.stringify(data);
-      }
-    } else {
-      // Fallback for any other data type
-      text = String(data || '');
-    }
-
-    listener(text);
-  });
+  return speechEventEmitter.addListener('onSpeechResult', (text) =>
+    listener(text as string)
+  );
 }
 
 export function addSpeechErrorListener(listener: SpeechErrorListener) {
@@ -56,19 +39,8 @@ export function addSpeechErrorListener(listener: SpeechErrorListener) {
   );
 }
 
-export function addRecordingSavedListener(listener: RecordingSavedListener) {
-  return speechEventEmitter.addListener('onRecordingSaved', (data) => {
-    if (
-      typeof data === 'object' &&
-      data !== null &&
-      'fileName' in data &&
-      'filePath' in data
-    ) {
-      listener(data as { fileName: string; filePath: string });
-    }
-  });
-}
-
-export function playAudio(filePath: string): Promise<void> {
-  return SpeechToText.playAudio(filePath);
+export function addSpeechFinishedListener(listener: SpeechFinishedListener) {
+  return speechEventEmitter.addListener('onSpeechFinished', (data) =>
+    listener(data as { finalResult: string; audioLocalPath: string })
+  );
 }

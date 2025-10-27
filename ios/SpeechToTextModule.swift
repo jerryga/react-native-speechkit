@@ -9,20 +9,14 @@ class SpeechToText: RCTEventEmitter {
   private var recognitionTask: SFSpeechRecognitionTask?
   private let audioEngine = AVAudioEngine()
   private var request: SFSpeechAudioBufferRecognitionRequest?
-
   private var audioFile: AVAudioFile?
-  private var currentFileName: String?
+  private var finalTranscription: String = ""
 
   override static func requiresMainQueueSetup() -> Bool { true }
-  override func supportedEvents() -> [String]! { ["onSpeechResult", "onSpeechError", "onRecordingSaved"] }
-
-  @objc func multiply(_ a: Double, b: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    resolve(a * b)
-  }
-
   private func getDocumentsDirectory() -> URL {
     return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
   }
+  override func supportedEvents() -> [String]! { ["onSpeechResult", "onSpeechError", "onSpeechFinished"] }
 
   @objc func startRecording(_ resolve: @escaping RCTPromiseResolveBlock,
                             reject: @escaping RCTPromiseRejectBlock) {
@@ -52,20 +46,21 @@ class SpeechToText: RCTEventEmitter {
     let inputNode = audioEngine.inputNode
     guard let request = request else { return }
 
-    // Prepare file recording
     let fileName = "\(UUID().uuidString).wav"
-    self.currentFileName = fileName
     let fileURL = getDocumentsDirectory().appendingPathComponent(fileName)
     self.audioFile = nil
 
     request.shouldReportPartialResults = true
     recognitionTask = recognizer?.recognitionTask(with: request) { result, error in
-
       switch (result, error) {
       case let (.some(result), _):
         self.sendEvent(withName: "onSpeechResult", body: [
           "text": result.bestTranscription.formattedString,
         ])
+        self.finalTranscription = result.bestTranscription.formattedString
+        if result.isFinal {
+          self.finalTranscription = result.bestTranscription.formattedString
+        }
       case (_, .some):
         self.sendEvent(withName: "onSpeechError", body: error?.localizedDescription)
       case (.none, .none):
@@ -97,7 +92,6 @@ class SpeechToText: RCTEventEmitter {
   }
 
   @objc func stopRecording() {
-
     if audioEngine.isRunning {
         audioEngine.stop()
     }
@@ -118,41 +112,24 @@ class SpeechToText: RCTEventEmitter {
     } catch {
       print("Error deactivating audio session: \(error)")
     }
+    // Get the audio file path before closing
+    let audioLocalPath = audioFile?.url.path ?? ""
+    audioFile = nil
 
-    if let name = currentFileName {
-      self.sendEvent(withName: "onRecordingSaved", body: [
-        "fileName": name,
-        "filePath": self.getDocumentsDirectory().appendingPathComponent(name).path
-      ])
-    }
-    self.audioFile = nil
-    self.currentFileName = nil
-  }
+    // Send event with final result and audio path
+    sendEvent(withName: "onSpeechFinished", body: [
+      "finalResult": finalTranscription,
+      "audioLocalPath": audioLocalPath
+    ])
 
-  @objc func playAudio(_ filePath: String,
-                       resolve: @escaping RCTPromiseResolveBlock,
-                       reject: @escaping RCTPromiseRejectBlock) {
-    let url = URL(fileURLWithPath: filePath)
+    // Reset final transcription
+    finalTranscription = ""
 
+    // Deactivate audio session
     do {
-      let audioSession = AVAudioSession.sharedInstance()
-      try audioSession.setCategory(.playback, mode: .default, options: [])
-      try audioSession.setActive(true)
-
-      let player = try AVAudioPlayer(contentsOf: url)
-      player.play()
-
-      // Wait for playback to finish
-      DispatchQueue.global(qos: .background).async {
-        while player.isPlaying {
-          Thread.sleep(forTimeInterval: 0.1)
-        }
-        DispatchQueue.main.async {
-          resolve("Playback completed")
-        }
-      }
+      try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     } catch {
-      reject("E_PLAYBACK", "Failed to play audio: \(error.localizedDescription)", error)
+      print("Error deactivating audio session: \(error)")
     }
   }
 }
