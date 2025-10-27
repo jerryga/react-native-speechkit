@@ -1,8 +1,8 @@
-# react-native-speech-to-text
+# react-native-speechkit
 
 🎤 **A powerful React Native library for real-time speech recognition, audio recording, and playback on iOS and Android.**
 
-[![npm version](https://img.shields.io/npm/v/react-native-speech-to-text.svg)](https://www.npmjs.com/package/react-native-speech-to-text)
+[![npm version](https://img.shields.io/npm/v/react-native-speechkit.svg)](https://www.npmjs.com/package/react-native-speechkit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -21,9 +21,9 @@
 ## 📦 Installation
 
 ```sh
-npm install react-native-speech-to-text
+npm install react-native-speechkit
 # or
-yarn add react-native-speech-to-text
+yarn add react-native-speechkit
 ```
 
 ### iOS Setup
@@ -75,7 +75,7 @@ import {
   addSpeechResultListener,
   addSpeechErrorListener,
   addSpeechFinishedListener,
-} from 'react-native-speech-to-text';
+} from 'react-native-speechkit';
 
 // Start speech recognition (optionally pass fileURLString and autoStopAfter in ms)
 await startSpeechRecognition();
@@ -143,7 +143,7 @@ import {
   addSpeechResultListener,
   addSpeechErrorListener,
   addSpeechFinishedListener,
-} from 'react-native-speech-to-text';
+} from 'react-native-speechkit';
 
 export default function App() {
   const [isRecording, setIsRecording] = useState(false);

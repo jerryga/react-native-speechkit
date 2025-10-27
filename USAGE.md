@@ -7,9 +7,9 @@ This React Native module provides speech recognition capabilities for both iOS a
 ## Installation
 
 ```bash
-npm install react-native-speech-to-text
+npm install react-native-speechkit
 # or
-yarn add react-native-speech-to-text
+yarn add react-native-speechkit
 ```
 
 ### iOS Setup
@@ -62,7 +62,7 @@ async function requestMicrophonePermission() {
 Starts speech recognition and audio recording. Optionally specify a file path and auto-stop duration (ms).
 
 ```typescript
-import { startSpeechRecognition } from 'react-native-speech-to-text';
+import { startSpeechRecognition } from 'react-native-speechkit';
 
 try {
   await startSpeechRecognition();
@@ -78,7 +78,7 @@ try {
 Stops the current speech recognition session.
 
 ```typescript
-import { stopSpeechRecognition } from 'react-native-speech-to-text';
+import { stopSpeechRecognition } from 'react-native-speechkit';
 
 stopSpeechRecognition();
 ```
@@ -91,7 +91,7 @@ Adds a listener for speech recognition results (partial and final). The listener
 Returns a subscription object with a `remove()` method.
 
 ```typescript
-import { addSpeechResultListener } from 'react-native-speech-to-text';
+import { addSpeechResultListener } from 'react-native-speechkit';
 
 const subscription = addSpeechResultListener(({ text, isFinal }) => {
   console.log('Transcribed text:', text, 'Final:', isFinal);
@@ -109,7 +109,7 @@ Adds a listener for speech recognition errors. The listener receives an object w
 Returns a subscription object with a `remove()` method.
 
 ```typescript
-import { addSpeechErrorListener } from 'react-native-speech-to-text';
+import { addSpeechErrorListener } from 'react-native-speechkit';
 
 const subscription = addSpeechErrorListener(({ error }) => {
   console.error('Speech recognition error:', error);
@@ -124,7 +124,7 @@ subscription.remove();
 Adds a listener for the finished event, which provides the final recognized text and the local audio file path. Returns a subscription with `.remove()`.
 
 ```typescript
-import { addSpeechFinishedListener } from 'react-native-speech-to-text';
+import { addSpeechFinishedListener } from 'react-native-speechkit';
 
 const subscription = addSpeechFinishedListener(({ finalResult, audioLocalPath }) => {
   console.log('Final result:', finalResult, 'Audio file:', audioLocalPath);
@@ -146,7 +146,7 @@ import {
   addSpeechResultListener,
   addSpeechErrorListener,
   addSpeechFinishedListener,
-} from 'react-native-speech-to-text';
+} from 'react-native-speechkit';
 
 export default function App() {
   const [isRecording, setIsRecording] = useState(false);

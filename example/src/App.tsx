@@ -14,7 +14,7 @@ import {
   addSpeechFinishedListener,
   addSpeechErrorListener,
   addSpeechResultListener,
-} from 'react-native-speech-to-text';
+} from 'react-native-speechkit';
 import { PermissionsAndroid, Platform } from 'react-native';
 // Request RECORD_AUDIO permission at runtime (Android)
 async function requestMicrophonePermission() {
