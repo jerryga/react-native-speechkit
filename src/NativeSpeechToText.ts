@@ -1,7 +1,10 @@
 import { TurboModuleRegistry, type TurboModule } from 'react-native';
 
 export interface Spec extends TurboModule {
-  startSpeechRecognition(): Promise<string>;
+  startSpeechRecognition(
+    fileURLString: string | null,
+    autoStopAfter: number | null
+  ): Promise<string>;
   stopSpeechRecognition(): void;
 }
 

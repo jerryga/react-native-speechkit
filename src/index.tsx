@@ -4,11 +4,11 @@ import SpeechToText from './NativeSpeechToText';
 export { SpeechToText };
 
 export interface SpeechResultListener {
-  (text: string): void;
+  (data: { text: string; isFinal: boolean }): void;
 }
 
 export interface SpeechErrorListener {
-  (error: string): void;
+  (data: { error: string }): void;
 }
 
 export interface SpeechFinishedListener {
@@ -17,8 +17,14 @@ export interface SpeechFinishedListener {
 
 const speechEventEmitter = new NativeEventEmitter(NativeModules.SpeechToText);
 
-export function startSpeechRecognition(): Promise<string> {
-  return SpeechToText.startSpeechRecognition();
+export function startSpeechRecognition(
+  fileURLString?: string | null,
+  autoStopAfter?: number | null
+): Promise<string> {
+  return SpeechToText.startSpeechRecognition(
+    fileURLString ?? null,
+    autoStopAfter ?? null
+  );
 }
 
 export function stopSpeechRecognition(): void {
@@ -26,19 +32,19 @@ export function stopSpeechRecognition(): void {
 }
 
 export function addSpeechResultListener(listener: SpeechResultListener) {
-  return speechEventEmitter.addListener('onSpeechResult', (text) =>
-    listener(text as string)
+  return speechEventEmitter.addListener('onSpeechRecognitionResult', (data) =>
+    listener(data as { text: string; isFinal: boolean })
   );
 }
 
 export function addSpeechErrorListener(listener: SpeechErrorListener) {
-  return speechEventEmitter.addListener('onSpeechError', (error) =>
-    listener(error as string)
+  return speechEventEmitter.addListener('onSpeechRecognitionError', (data) =>
+    listener(data as { error: string })
   );
 }
 
 export function addSpeechFinishedListener(listener: SpeechFinishedListener) {
-  return speechEventEmitter.addListener('onSpeechFinished', (data) =>
+  return speechEventEmitter.addListener('onSpeechRecognitionFinished', (data) =>
     listener(data as { finalResult: string; audioLocalPath: string })
   );
 }

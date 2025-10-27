@@ -1,7 +1,7 @@
-import Foundation
-import Speech
 import AVFoundation
+import Foundation
 import React
+import Speech
 
 @objc(SpeechToText)
 class SpeechToText: RCTEventEmitter {
@@ -17,7 +17,9 @@ class SpeechToText: RCTEventEmitter {
   private func getDocumentsDirectory() -> URL {
     return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
   }
-  override func supportedEvents() -> [String]! { ["onSpeechRecognitionResult", "onSpeechRecognitionError", "onSpeechRecognitionFinished"] }
+  override func supportedEvents() -> [String]! {
+    ["onSpeechRecognitionResult", "onSpeechRecognitionError", "onSpeechRecognitionFinished"]
+  }
 
   @objc func startSpeechRecognition(
     _ fileURLString: NSString?,
@@ -84,17 +86,19 @@ class SpeechToText: RCTEventEmitter {
     request.shouldReportPartialResults = true
     recognitionTask = recognizer?.recognitionTask(with: request) { result, error in
       switch (result, error) {
-      case let (.some(result), _):
-        self.sendEvent(withName: "onSpeechRecognitionResult", body: [
-          "text": result.bestTranscription.formattedString,
-          "isFinal": result.isFinal,
-        ])
+      case (.some(let result), _):
+        self.sendEvent(
+          withName: "onSpeechRecognitionResult",
+          body: [
+            "text": result.bestTranscription.formattedString,
+            "isFinal": result.isFinal,
+          ])
         self.finalTranscription = result.bestTranscription.formattedString
         if result.isFinal {
           self.finalTranscription = result.bestTranscription.formattedString
         }
       case (_, .some):
-        self.sendEvent(withName: "onSpeechRecognitionError", body: error?.localizedDescription)
+        self.sendEvent(withName: "onSpeechRecognitionError", body: ["error": error?.localizedDescription])
       case (.none, .none):
         fatalError("It should not be possible to have both a nil result and nil error.")
       }
@@ -124,43 +128,43 @@ class SpeechToText: RCTEventEmitter {
   }
 
   @objc func stopSpeechRecognition() {
+    // Cancel any pending auto-stop timer
     stopTimer?.cancel()
     stopTimer = nil
 
+    // Stop and reset audio engine
     if audioEngine.isRunning {
-        audioEngine.stop()
+      audioEngine.stop()
     }
-
+    // Remove tap if installed
     let inputNode = audioEngine.inputNode
-    if inputNode.numberOfInputs > 0 {
-        inputNode.removeTap(onBus: 0)
-    }
+    inputNode.removeTap(onBus: 0)
+    audioEngine.reset()
 
+    // End audio request and cancel recognition task
     request?.endAudio()
     recognitionTask?.finish()
     recognitionTask = nil
     request = nil
 
+    // Deactivate audio session once
     do {
       try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     } catch {
       print("Error deactivating audio session: \(error)")
     }
+
     let audioLocalPath = audioFile?.url.path ?? ""
     audioFile = nil
 
-    sendEvent(withName: "onSpeechRecognitionFinished", body: [
-      "finalResult": finalTranscription,
-      "audioLocalPath": audioLocalPath
-    ])
+    // Emit final result
+    sendEvent(
+      withName: "onSpeechRecognitionFinished",
+      body: [
+        "finalResult": finalTranscription,
+        "audioLocalPath": audioLocalPath,
+      ])
 
     finalTranscription = ""
-
-    do {
-      try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-    } catch {
-      print("Error deactivating audio session: \(error)")
-    }
   }
 }
-

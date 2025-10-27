@@ -1,218 +1,227 @@
 package com.speechtotext
 
-import android.content.Intent
-import android.media.MediaPlayer
+import android.Manifest
 import android.media.MediaRecorder
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
+import androidx.core.content.ContextCompat
+import androidx.core.content.PermissionChecker
 import com.facebook.react.bridge.*
-import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter
 import java.io.File
-import java.io.IOException
 import java.util.*
 
-class SpeechToTextModule(private val reactContext: ReactApplicationContext)
-  : ReactContextBaseJavaModule(reactContext) {
+class SpeechToTextModule(private val reactContext: ReactApplicationContext) :
+  ReactContextBaseJavaModule(reactContext), RecognitionListener {
 
   private var speechRecognizer: SpeechRecognizer? = null
+  private var recognizerIntent: android.content.Intent? = null
   private var mediaRecorder: MediaRecorder? = null
-  private var mediaPlayer: MediaPlayer? = null
-  private var currentFileName: String? = null
-  private var currentFilePath: String? = null
-  private var isRecording = false
+  private var audioFile: File? = null
+  private var finalTranscription: String = ""
+  private val handler = Handler(Looper.getMainLooper())
+  private var autoStopRunnable: Runnable? = null
 
-  override fun getName() = "SpeechToText"
+  override fun getName(): String = "SpeechToText"
 
+  // ----------------------------------------------------------
+  // JS-Visible Methods
+  // ----------------------------------------------------------
   @ReactMethod
-  fun multiply(a: Double, b: Double, promise: Promise) {
-    promise.resolve(a * b)
-  }
+  fun startSpeechRecognition(fileURLString: String?, autoStopAfter: Int?, promise: Promise) {
+    val ctx = reactApplicationContext
 
-  @ReactMethod
-  fun startSpeechRecognition(promise: Promise) {
-    if (!SpeechRecognizer.isRecognitionAvailable(reactContext)) {
-      promise.reject("E_NO_SPEECH", "Speech recognition not available")
+    // Check permission
+    val hasPermission = ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) ==
+        PermissionChecker.PERMISSION_GRANTED
+    if (!hasPermission) {
+      promise.reject("E_PERMISSION", "RECORD_AUDIO permission denied")
+      return
+    }
+
+    // Prepare audio file
+    audioFile = if (!fileURLString.isNullOrBlank()) {
+      File(fileURLString)
+    } else {
+      File(ctx.filesDir, "${UUID.randomUUID()}.m4a")
+    }
+
+    try {
+      startMediaRecorder(audioFile!!)
+    } catch (e: Exception) {
+      promise.reject("E_START_RECORDER", "Failed to start audio recording: ${e.message}", e)
       return
     }
 
     try {
-      // Generate unique filename
-      currentFileName = "${UUID.randomUUID()}.wav"
-      currentFilePath = File(reactContext.filesDir, currentFileName!!).absolutePath
-
-      // Start audio recording
-      startAudioRecording()
-
-      // Start speech recognition
-      startSpeechRecognition()
-
-      isRecording = true
-      promise.resolve("Recording started")
+      startSpeechRecognizer()
     } catch (e: Exception) {
-      promise.reject("E_START", "Failed to start recording: ${e.message}", e)
-    }
-  }
-
-  private fun startAudioRecording() {
-    mediaRecorder = MediaRecorder().apply {
-      setAudioSource(MediaRecorder.AudioSource.MIC)
-      setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-      setOutputFile(currentFilePath)
-      setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-
-      try {
-        prepare()
-        start()
-      } catch (e: IOException) {
-        throw RuntimeException("Failed to start audio recording", e)
-      }
-    }
-  }
-
-  private fun startSpeechRecognition() {
-    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(reactContext)
-    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-      putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-      putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-      putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-      putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+      stopMediaRecorderSafely()
+      promise.reject("E_START_SR", "Failed to start speech recognizer: ${e.message}", e)
+      return
     }
 
-    speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-      override fun onResults(results: Bundle?) {
-        results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let { text ->
-          val resultData = WritableNativeMap().apply {
-            putString("text", text)
-          }
-          sendEvent("onSpeechResult", resultData)
+    promise.resolve("Recording started")
 
-          // Stop recording and emit saved event
-          stopRecordingInternal(true)
-        }
-      }
-
-      override fun onPartialResults(results: Bundle?) {
-        results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let { text ->
-          val resultData = WritableNativeMap().apply {
-            putString("text", text)
-          }
-          sendEvent("onSpeechResult", resultData)
-        }
-      }
-
-      override fun onError(error: Int) {
-        val errorMessage = when(error) {
-          SpeechRecognizer.ERROR_NO_MATCH -> "No speech detected"
-          SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech input timeout"
-          SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
-          SpeechRecognizer.ERROR_NETWORK -> "Network error"
-          SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
-          SpeechRecognizer.ERROR_SERVER -> "Server error"
-          SpeechRecognizer.ERROR_CLIENT -> "Client error"
-          SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
-          SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "RecognitionService busy"
-          else -> "Unknown error: $error"
-        }
-
-        // Only send non-critical errors
-        if (error != SpeechRecognizer.ERROR_NO_MATCH && error != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-          sendEvent("onSpeechError", errorMessage)
-        }
-      }
-
-      override fun onReadyForSpeech(params: Bundle?) {}
-      override fun onBeginningOfSpeech() {}
-      override fun onRmsChanged(rmsdB: Float) {}
-      override fun onBufferReceived(buffer: ByteArray?) {}
-      override fun onEndOfSpeech() {}
-      override fun onEvent(eventType: Int, params: Bundle?) {}
-    })
-
-    speechRecognizer?.startListening(intent)
+    // Schedule auto stop
+    if ((autoStopAfter ?: 0) > 0) {
+      autoStopRunnable?.let { handler.removeCallbacks(it) }
+      autoStopRunnable = Runnable { stopSpeechRecognitionInternal() }
+      handler.postDelayed(autoStopRunnable!!, (autoStopAfter!! * 1000).toLong())
+    }
   }
 
   @ReactMethod
   fun stopSpeechRecognition() {
-    stopRecordingInternal(true)
+    autoStopRunnable?.let { handler.removeCallbacks(it) }
+    autoStopRunnable = null
+    stopSpeechRecognitionInternal()
   }
 
-  private fun stopRecordingInternal(emitSavedEvent: Boolean) {
-    if (!isRecording) return
+  // ----------------------------------------------------------
+  // Internal helpers
+  // ----------------------------------------------------------
+  private fun startSpeechRecognizer() {
+    val ctx = reactApplicationContext
+    handler.post {
+      if (!SpeechRecognizer.isRecognitionAvailable(ctx)) {
+        throw RuntimeException("Speech recognition not available on this device.")
+      }
 
+      speechRecognizer = SpeechRecognizer.createSpeechRecognizer(ctx)
+      speechRecognizer?.setRecognitionListener(this)
+
+      recognizerIntent = android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+      }
+
+      speechRecognizer?.startListening(recognizerIntent)
+    }
+  }
+
+  private fun startMediaRecorder(file: File) {
+    mediaRecorder = MediaRecorder().apply {
+      setAudioSource(MediaRecorder.AudioSource.MIC)
+      setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+      setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+      setOutputFile(file.absolutePath)
+      prepare()
+      start()
+    }
+  }
+
+  private fun stopMediaRecorderSafely() {
     try {
-      // Stop speech recognition
+      mediaRecorder?.stop()
+    } catch (e: Exception) {
+      Log.w("SpeechToText", "mediaRecorder.stop() failed: ${e.message}")
+    } finally {
+      try {
+        mediaRecorder?.release()
+      } catch (_: Exception) {}
+      mediaRecorder = null
+    }
+  }
+
+  private fun stopSpeechRecognitionInternal() {
+    handler.post {
+      try {
+        speechRecognizer?.stopListening()
+      } catch (_: Exception) {}
       speechRecognizer?.stopListening()
       speechRecognizer?.destroy()
       speechRecognizer = null
 
-      // Stop audio recording
-      mediaRecorder?.apply {
-        try {
-          stop()
-          reset()
-          release()
-        } catch (e: Exception) {
-          // Handle potential issues with stopping recorder
-        }
-      }
-      mediaRecorder = null
+      stopMediaRecorderSafely()
 
-      isRecording = false
-
-      // Emit recording saved event
-      if (emitSavedEvent && currentFileName != null && currentFilePath != null) {
-        val savedData = WritableNativeMap().apply {
-          putString("fileName", currentFileName!!)
-          putString("filePath", currentFilePath!!)
-        }
-        sendEvent("onSpeechFinished", savedData)
+      val result = Arguments.createMap().apply {
+        putString("finalResult", finalTranscription)
+        putString("audioLocalPath", audioFile?.absolutePath ?: "")
       }
-    } catch (e: Exception) {
-      // Log error but don't crash
-      e.printStackTrace()
-    } finally {
-      currentFileName = null
-      currentFilePath = null
+      sendEvent("onSpeechRecognitionFinished", result)
+
+      finalTranscription = ""
+      audioFile = null
     }
   }
 
-  @ReactMethod
-  fun playAudio(filePath: String, promise: Promise) {
-    try {
-      // Release any existing player
-      mediaPlayer?.release()
+  private fun sendEvent(eventName: String, params: Any?) {
+    reactContext
+      .getJSModule(RCTDeviceEventEmitter::class.java)
+      .emit(eventName, params)
+  }
 
-      mediaPlayer = MediaPlayer().apply {
-        setDataSource(filePath)
-        setOnCompletionListener {
-          release()
-          mediaPlayer = null
-          promise.resolve("Playback completed")
-        }
-        setOnErrorListener { _, what, extra ->
-          release()
-          mediaPlayer = null
-          promise.reject("E_PLAYBACK", "Playback error: what=$what, extra=$extra")
-          true
-        }
-        prepareAsync()
-        setOnPreparedListener { start() }
-      }
-    } catch (e: Exception) {
-      promise.reject("E_PLAYBACK", "Failed to play audio: ${e.message}", e)
+  // ----------------------------------------------------------
+  // RecognitionListener Callbacks
+  // ----------------------------------------------------------
+  override fun onReadyForSpeech(params: Bundle?) {}
+  override fun onBeginningOfSpeech() {}
+  override fun onRmsChanged(rmsdB: Float) {}
+  override fun onBufferReceived(buffer: ByteArray?) {}
+  override fun onEndOfSpeech() {}
+
+  override fun onError(error: Int) {
+    val msg = when (error) {
+      SpeechRecognizer.ERROR_AUDIO -> "ERROR_AUDIO"
+      SpeechRecognizer.ERROR_CLIENT -> "ERROR_CLIENT"
+      SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "ERROR_INSUFFICIENT_PERMISSIONS"
+      SpeechRecognizer.ERROR_NETWORK -> "ERROR_NETWORK"
+      SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "ERROR_NETWORK_TIMEOUT"
+      SpeechRecognizer.ERROR_NO_MATCH -> "ERROR_NO_MATCH"
+      SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "ERROR_RECOGNIZER_BUSY"
+      SpeechRecognizer.ERROR_SERVER -> "ERROR_SERVER"
+      SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "ERROR_SPEECH_TIMEOUT"
+      else -> "ERROR_UNKNOWN"
     }
+    // send the string message directly
+     val map = Arguments.createMap().apply {
+      putString("error", msg)
+    }
+    sendEvent("onSpeechRecognitionError", map)
   }
 
-  private fun sendEvent(eventName: String, data: Any) {
-    reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-      .emit(eventName, data)
+  override fun onResults(results: Bundle?) {
+    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+    val text = matches?.firstOrNull() ?: ""
+    finalTranscription = text
+    val map = Arguments.createMap().apply {
+      putString("text", text)
+      putBoolean("isFinal", true)
+    }
+    sendEvent("onSpeechRecognitionResult", map)
   }
 
+  override fun onPartialResults(partialResults: Bundle?) {
+    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+    val text = matches?.firstOrNull() ?: ""
+    if (text.isNotEmpty()) finalTranscription = text
+    val map = Arguments.createMap().apply {
+      putString("text", text)
+      putBoolean("isFinal", false)
+    }
+    sendEvent("onSpeechRecognitionResult", map)
+  }
+
+  override fun onEvent(eventType: Int, params: Bundle?) {}
+
+  // ----------------------------------------------------------
+  // Lifecycle cleanup
+  // ----------------------------------------------------------
   override fun onCatalystInstanceDestroy() {
-    super.onCatalystInstanceDestroy()
-    stopRecordingInternal(false)
-    mediaPlayer?.release()
-    mediaPlayer = null
+    handler.post {
+      try {
+        speechRecognizer?.destroy()
+      } catch (_: Exception) {}
+      stopMediaRecorderSafely()
+      super.onCatalystInstanceDestroy()
+    }
   }
 }

@@ -15,6 +15,25 @@ import {
   addSpeechErrorListener,
   addSpeechResultListener,
 } from 'react-native-speech-to-text';
+import { PermissionsAndroid, Platform } from 'react-native';
+// Request RECORD_AUDIO permission at runtime (Android)
+async function requestMicrophonePermission() {
+  if (Platform.OS === 'android') {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      {
+        title: 'Microphone Permission',
+        message:
+          'This app needs access to your microphone for speech recognition.',
+        buttonNeutral: 'Ask Me Later',
+        buttonNegative: 'Cancel',
+        buttonPositive: 'OK',
+      }
+    );
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+  }
+  return true;
+}
 
 export default function App() {
   const [isRecording, setIsRecording] = useState(false);
@@ -22,18 +41,20 @@ export default function App() {
   const [history, setHistory] = useState<string[]>([]);
 
   useEffect(() => {
-    const resultSubscription = addSpeechResultListener((text) => {
+    const resultSubscription = addSpeechResultListener(({ text }) => {
       setTranscribedText(text);
     });
 
-    const finishedSubscription = addSpeechFinishedListener((data) => {
-      setIsRecording(false);
-      if (data.finalResult) {
-        setHistory((prev) => [data.finalResult, ...prev]);
+    const finishedSubscription = addSpeechFinishedListener(
+      ({ finalResult }) => {
+        setIsRecording(false);
+        if (finalResult) {
+          setHistory((prev) => [finalResult, ...prev]);
+        }
       }
-    });
+    );
 
-    const errorSubscription = addSpeechErrorListener((error) => {
+    const errorSubscription = addSpeechErrorListener(({ error }) => {
       Alert.alert('Speech Error', error);
       setIsRecording(false);
     });
@@ -47,6 +68,11 @@ export default function App() {
 
   const handleStartRecording = async () => {
     try {
+      const hasPermission = await requestMicrophonePermission();
+      if (!hasPermission) {
+        Alert.alert('Permission Denied', 'Microphone permission is required.');
+        return;
+      }
       await startSpeechRecognition();
       setIsRecording(true);
       setTranscribedText('');
