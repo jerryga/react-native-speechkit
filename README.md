@@ -65,97 +65,122 @@ async function requestMicrophonePermission() {
 
 ---
 
-## � Usage
+
+## 🚀 Usage
 
 ```js
 import {
-  startRecording,
-  stopRecording,
+  startSpeechRecognition,
+  stopSpeechRecognition,
   addSpeechResultListener,
   addSpeechErrorListener,
+  addSpeechFinishedListener,
 } from 'react-native-speech-to-text';
 
-// Start recording
-await startRecording();
+// Start speech recognition (optionally pass fileURLString and autoStopAfter in ms)
+await startSpeechRecognition();
 
-// Listen for results
-const resultSub = addSpeechResultListener((text) => {
-  console.log('Transcribed:', text);
+// Listen for results (partial and final)
+const resultSub = addSpeechResultListener(({ text, isFinal }) => {
+  console.log('Transcribed:', text, 'Final:', isFinal);
 });
 
 // Listen for errors
-const errorSub = addSpeechErrorListener((err) => {
-  console.error('Error:', err);
+const errorSub = addSpeechErrorListener(({ error }) => {
+  console.error('Error:', error);
 });
 
-// Stop recording
-stopRecording();
+// Listen for finished event (final result and audio path)
+const finishedSub = addSpeechFinishedListener(({ finalResult, audioLocalPath }) => {
+  console.log('Final result:', finalResult, 'Audio file:', audioLocalPath);
+});
+
+// Stop recognition
+stopSpeechRecognition();
 
 // Remove listeners when done
 resultSub.remove();
 errorSub.remove();
+finishedSub.remove();
 ```
 
 ---
 
+
 ## 🧩 API Reference
 
-### `startRecording(): Promise<string>`
+### `startSpeechRecognition(fileURLString?: string | null, autoStopAfter?: number | null): Promise<string>`
 
-Start speech recognition and audio recording.
+Start speech recognition and audio recording. Optionally specify a file path and auto-stop duration (ms).
 
-### `stopRecording(): void`
+### `stopSpeechRecognition(): void`
 
 Stop the current recognition session.
 
-### `addSpeechResultListener(listener: (text: string) => void)`
+### `addSpeechResultListener(listener: (data: { text: string; isFinal: boolean }) => void)`
 
-Subscribe to speech recognition results. Returns a subscription with `.remove()`.
+Subscribe to speech recognition results (partial and final). Returns a subscription with `.remove()`.
 
-### `addSpeechErrorListener(listener: (error: string) => void)`
+### `addSpeechErrorListener(listener: (data: { error: string }) => void)`
 
 Subscribe to errors. Returns a subscription with `.remove()`.
 
+### `addSpeechFinishedListener(listener: (data: { finalResult: string; audioLocalPath: string }) => void)`
+
+Subscribe to the finished event, which provides the final recognized text and the local audio file path. Returns a subscription with `.remove()`.
+
 ---
 
-## � Example
+
+## 📝 Example
 
 ```js
 import { useState, useEffect } from 'react';
 import { View, Button, Text } from 'react-native';
 import {
-  startRecording,
-  stopRecording,
+  startSpeechRecognition,
+  stopSpeechRecognition,
   addSpeechResultListener,
   addSpeechErrorListener,
+  addSpeechFinishedListener,
 } from 'react-native-speech-to-text';
 
 export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [text, setText] = useState('');
+  const [audioPath, setAudioPath] = useState('');
 
   useEffect(() => {
-    const resultSub = addSpeechResultListener(setText);
+    const resultSub = addSpeechResultListener(({ text, isFinal }) => {
+      setText(text + (isFinal ? ' (final)' : ''));
+    });
     const errorSub = addSpeechErrorListener(() => setIsRecording(false));
+    const finishedSub = addSpeechFinishedListener(({ finalResult, audioLocalPath }) => {
+      setText(finalResult);
+      setAudioPath(audioLocalPath);
+      setIsRecording(false);
+    });
     return () => {
       resultSub.remove();
       errorSub.remove();
+      finishedSub.remove();
     };
   }, []);
 
   return (
     <View>
       <Text>{text || 'No text yet'}</Text>
+      <Text>{audioPath ? `Audio: ${audioPath}` : ''}</Text>
       <Button
         title={isRecording ? 'Stop' : 'Start'}
         onPress={
           isRecording
             ? () => {
-                stopRecording();
+                stopSpeechRecognition();
                 setIsRecording(false);
               }
             : async () => {
-                await startRecording();
+                await startSpeechRecognition();
                 setIsRecording(true);
               }
         }

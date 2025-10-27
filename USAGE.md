@@ -56,58 +56,62 @@ async function requestMicrophonePermission() {
 
 ### Functions
 
-#### `startRecording(): Promise<string>`
 
-Starts speech recognition. Returns a promise that resolves when recording starts.
+#### `startSpeechRecognition(fileURLString?: string | null, autoStopAfter?: number | null): Promise<string>`
+
+Starts speech recognition and audio recording. Optionally specify a file path and auto-stop duration (ms).
 
 ```typescript
-import { startRecording } from 'react-native-speech-to-text';
+import { startSpeechRecognition } from 'react-native-speech-to-text';
 
 try {
-  await startRecording();
-  console.log('Recording started');
+  await startSpeechRecognition();
+  console.log('Recognition started');
 } catch (error) {
-  console.error('Failed to start recording:', error);
+  console.error('Failed to start recognition:', error);
 }
 ```
 
-#### `stopRecording(): void`
+
+#### `stopSpeechRecognition(): void`
 
 Stops the current speech recognition session.
 
 ```typescript
-import { stopRecording } from 'react-native-speech-to-text';
+import { stopSpeechRecognition } from 'react-native-speech-to-text';
 
-stopRecording();
+stopSpeechRecognition();
 ```
 
-#### `addSpeechResultListener(listener: (text: string) => void)`
 
-Adds a listener for speech recognition results. The listener will be called with transcribed text as it becomes available.
+#### `addSpeechResultListener(listener: (data: { text: string; isFinal: boolean }) => void)`
+
+Adds a listener for speech recognition results (partial and final). The listener receives an object with `text` and `isFinal` properties.
 
 Returns a subscription object with a `remove()` method.
 
 ```typescript
 import { addSpeechResultListener } from 'react-native-speech-to-text';
 
-const subscription = addSpeechResultListener((text) => {
-  console.log('Transcribed text:', text);
+const subscription = addSpeechResultListener(({ text, isFinal }) => {
+  console.log('Transcribed text:', text, 'Final:', isFinal);
 });
 
 // Don't forget to remove the listener when done
 subscription.remove();
 ```
 
-#### `addSpeechErrorListener(listener: (error: string) => void)`
 
-Adds a listener for speech recognition errors.
+#### `addSpeechErrorListener(listener: (data: { error: string }) => void)`
+
+Adds a listener for speech recognition errors. The listener receives an object with an `error` property.
 
 Returns a subscription object with a `remove()` method.
 
 ```typescript
 import { addSpeechErrorListener } from 'react-native-speech-to-text';
 
-const subscription = addSpeechErrorListener((error) => {
+const subscription = addSpeechErrorListener(({ error }) => {
   console.error('Speech recognition error:', error);
 });
 
@@ -115,41 +119,60 @@ const subscription = addSpeechErrorListener((error) => {
 subscription.remove();
 ```
 
+#### `addSpeechFinishedListener(listener: (data: { finalResult: string; audioLocalPath: string }) => void)`
+
+Adds a listener for the finished event, which provides the final recognized text and the local audio file path. Returns a subscription with `.remove()`.
+
+```typescript
+import { addSpeechFinishedListener } from 'react-native-speech-to-text';
+
+const subscription = addSpeechFinishedListener(({ finalResult, audioLocalPath }) => {
+  console.log('Final result:', finalResult, 'Audio file:', audioLocalPath);
+});
+
+// Don't forget to remove the listener when done
+subscription.remove();
+```
+
+
 ## Complete Example
 
 ```typescript
 import { useState, useEffect } from 'react';
 import { View, Button, Text } from 'react-native';
 import {
-  startRecording,
-  stopRecording,
+  startSpeechRecognition,
+  stopSpeechRecognition,
   addSpeechResultListener,
   addSpeechErrorListener,
+  addSpeechFinishedListener,
 } from 'react-native-speech-to-text';
 
 export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [text, setText] = useState('');
+  const [audioPath, setAudioPath] = useState('');
 
   useEffect(() => {
-    const resultSub = addSpeechResultListener((transcribedText) => {
-      setText(transcribedText);
+    const resultSub = addSpeechResultListener(({ text, isFinal }) => {
+      setText(text + (isFinal ? ' (final)' : ''));
     });
-
-    const errorSub = addSpeechErrorListener((error) => {
-      console.error('Error:', error);
+    const errorSub = addSpeechErrorListener(() => setIsRecording(false));
+    const finishedSub = addSpeechFinishedListener(({ finalResult, audioLocalPath }) => {
+      setText(finalResult);
+      setAudioPath(audioLocalPath);
       setIsRecording(false);
     });
-
     return () => {
       resultSub.remove();
       errorSub.remove();
+      finishedSub.remove();
     };
   }, []);
 
   const handleStart = async () => {
     try {
-      await startRecording();
+      await startSpeechRecognition();
       setIsRecording(true);
     } catch (error) {
       console.error('Failed to start:', error);
@@ -157,13 +180,14 @@ export default function App() {
   };
 
   const handleStop = () => {
-    stopRecording();
+    stopSpeechRecognition();
     setIsRecording(false);
   };
 
   return (
     <View>
       <Text>{text || 'No text yet'}</Text>
+      <Text>{audioPath ? `Audio: ${audioPath}` : ''}</Text>
       <Button
         title={isRecording ? 'Stop' : 'Start'}
         onPress={isRecording ? handleStop : handleStart}
