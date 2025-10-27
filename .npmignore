@@ -1,0 +1,56 @@
+# Example app
+example/
+
+# Tests
+**/__tests__/
+**/__fixtures__/
+**/__mocks__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Development files
+.eslintrc.js
+.prettierrc
+.editorconfig
+.watchmanconfig
+.yarnrc.yml
+.yarn/
+turbo.json
+lefthook.yml
+.nvmrc
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+
+# Documentation (keep README.md)
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+
+# Build artifacts
+android/build/
+ios/build/
+*.log
+*.lock
+yarn.lock
+package-lock.json
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+.tmp/

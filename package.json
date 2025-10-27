@@ -1,7 +1,7 @@
 {
   "name": "react-native-speech-to-text",
   "version": "0.1.0",
-  "description": "STT",
+  "description": "A powerful React Native library for real-time speech recognition with audio recording and playback capabilities for iOS and Android",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -36,14 +36,34 @@
     "test": "jest",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "lint:fix": "eslint \"**/*.{js,ts,tsx}\" --fix",
+    "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\"",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
-    "release": "release-it --only-version"
+    "prepack": "yarn clean && yarn prepare",
+    "release": "release-it",
+    "release:dry": "release-it --dry-run",
+    "prepublishOnly": "yarn typecheck && yarn lint && yarn test"
   },
   "keywords": [
     "react-native",
     "ios",
-    "android"
+    "android",
+    "speech-to-text",
+    "speech-recognition",
+    "voice-recognition",
+    "voice-to-text",
+    "audio-recording",
+    "audio-playback",
+    "microphone",
+    "transcription",
+    "stt",
+    "voice",
+    "speech",
+    "dictation",
+    "real-time",
+    "turbo-module",
+    "typescript"
   ],
   "repository": {
     "type": "git",
