@@ -11,32 +11,59 @@ class SpeechToText: RCTEventEmitter {
   private var request: SFSpeechAudioBufferRecognitionRequest?
   private var audioFile: AVAudioFile?
   private var finalTranscription: String = ""
+  private var stopTimer: DispatchWorkItem?
 
   override static func requiresMainQueueSetup() -> Bool { true }
   private func getDocumentsDirectory() -> URL {
     return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
   }
-  override func supportedEvents() -> [String]! { ["onSpeechResult", "onSpeechError", "onSpeechFinished"] }
+  override func supportedEvents() -> [String]! { ["onSpeechRecognitionResult", "onSpeechRecognitionError", "onSpeechRecognitionFinished"] }
 
-  @objc func startRecording(_ resolve: @escaping RCTPromiseResolveBlock,
-                            reject: @escaping RCTPromiseRejectBlock) {
+  @objc func startSpeechRecognition(
+    _ fileURLString: NSString?,
+    autoStopAfter: NSNumber?,
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    let providedFileURL: URL? = {
+      guard let s = fileURLString as String?, !s.isEmpty else { return nil }
+      if let url = URL(string: s), url.scheme != nil {
+        return url
+      } else {
+        return URL(fileURLWithPath: s)
+      }
+    }()
+    let autoStopSeconds: TimeInterval = autoStopAfter?.doubleValue ?? 0
+
     SFSpeechRecognizer.requestAuthorization { status in
       guard status == .authorized else {
         reject("E_PERMISSION", "Speech recognition permission denied", nil)
         return
       }
       DispatchQueue.main.async {
-        do {
-          try self.startSession()
-          resolve("Recording started")
-        } catch {
-          reject("E_START", "Failed to start", error)
+        let startWork = {
+          do {
+            try self.startSession(fileURLOverride: providedFileURL)
+            resolve("Recording started")
+            if autoStopSeconds > 0 {
+              // Cancel any existing timer before scheduling a new one
+              self.stopTimer?.cancel()
+              let work = DispatchWorkItem { [weak self] in
+                self?.stopSpeechRecognition()
+              }
+              self.stopTimer = work
+              DispatchQueue.main.asyncAfter(deadline: .now() + autoStopSeconds, execute: work)
+            }
+          } catch {
+            reject("E_START", "Failed to start", error)
+          }
         }
+        startWork()
       }
     }
   }
 
-  private func startSession() throws {
+  private func startSession(fileURLOverride: URL?) throws {
     // Configure audio session
     let audioSession = AVAudioSession.sharedInstance()
     try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
@@ -46,23 +73,28 @@ class SpeechToText: RCTEventEmitter {
     let inputNode = audioEngine.inputNode
     guard let request = request else { return }
 
-    let fileName = "\(UUID().uuidString).wav"
-    let fileURL = getDocumentsDirectory().appendingPathComponent(fileName)
+    let resolvedFileURL: URL = {
+      if let override = fileURLOverride { return override }
+      let fileName = "\(UUID().uuidString).wav"
+      return getDocumentsDirectory().appendingPathComponent(fileName)
+    }()
+
     self.audioFile = nil
 
     request.shouldReportPartialResults = true
     recognitionTask = recognizer?.recognitionTask(with: request) { result, error in
       switch (result, error) {
       case let (.some(result), _):
-        self.sendEvent(withName: "onSpeechResult", body: [
+        self.sendEvent(withName: "onSpeechRecognitionResult", body: [
           "text": result.bestTranscription.formattedString,
+          "isFinal": result.isFinal,
         ])
         self.finalTranscription = result.bestTranscription.formattedString
         if result.isFinal {
           self.finalTranscription = result.bestTranscription.formattedString
         }
       case (_, .some):
-        self.sendEvent(withName: "onSpeechError", body: error?.localizedDescription)
+        self.sendEvent(withName: "onSpeechRecognitionError", body: error?.localizedDescription)
       case (.none, .none):
         fatalError("It should not be possible to have both a nil result and nil error.")
       }
@@ -75,7 +107,7 @@ class SpeechToText: RCTEventEmitter {
         if self.audioFile == nil {
           let settings = format.settings
           self.audioFile = try AVAudioFile(
-            forWriting: fileURL,
+            forWriting: resolvedFileURL,
             settings: settings,
             commonFormat: .pcmFormatFloat32,
             interleaved: false
@@ -91,7 +123,10 @@ class SpeechToText: RCTEventEmitter {
     try audioEngine.start()
   }
 
-  @objc func stopRecording() {
+  @objc func stopSpeechRecognition() {
+    stopTimer?.cancel()
+    stopTimer = nil
+
     if audioEngine.isRunning {
         audioEngine.stop()
     }
@@ -106,26 +141,21 @@ class SpeechToText: RCTEventEmitter {
     recognitionTask = nil
     request = nil
 
-    // Deactivate audio session
     do {
       try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     } catch {
       print("Error deactivating audio session: \(error)")
     }
-    // Get the audio file path before closing
     let audioLocalPath = audioFile?.url.path ?? ""
     audioFile = nil
 
-    // Send event with final result and audio path
-    sendEvent(withName: "onSpeechFinished", body: [
+    sendEvent(withName: "onSpeechRecognitionFinished", body: [
       "finalResult": finalTranscription,
       "audioLocalPath": audioLocalPath
     ])
 
-    // Reset final transcription
     finalTranscription = ""
 
-    // Deactivate audio session
     do {
       try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     } catch {
@@ -133,3 +163,4 @@ class SpeechToText: RCTEventEmitter {
     }
   }
 }
+

@@ -30,7 +30,7 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext)
   }
 
   @ReactMethod
-  fun startRecording(promise: Promise) {
+  fun startSpeechRecognition(promise: Promise) {
     if (!SpeechRecognizer.isRecognitionAvailable(reactContext)) {
       promise.reject("E_NO_SPEECH", "Speech recognition not available")
       return
@@ -133,7 +133,7 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext)
   }
 
   @ReactMethod
-  fun stopRecording() {
+  fun stopSpeechRecognition() {
     stopRecordingInternal(true)
   }
 

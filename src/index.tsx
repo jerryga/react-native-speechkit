@@ -1,9 +1,7 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import SpeechToText from './NativeSpeechToText';
 
-export function multiply(a: number, b: number): number {
-  return SpeechToText.multiply(a, b);
-}
+export { SpeechToText };
 
 export interface SpeechResultListener {
   (text: string): void;
@@ -19,12 +17,12 @@ export interface SpeechFinishedListener {
 
 const speechEventEmitter = new NativeEventEmitter(NativeModules.SpeechToText);
 
-export function startRecording(): Promise<string> {
-  return SpeechToText.startRecording();
+export function startSpeechRecognition(): Promise<string> {
+  return SpeechToText.startSpeechRecognition();
 }
 
-export function stopRecording(): void {
-  SpeechToText.stopRecording();
+export function stopSpeechRecognition(): void {
+  SpeechToText.stopSpeechRecognition();
 }
 
 export function addSpeechResultListener(listener: SpeechResultListener) {

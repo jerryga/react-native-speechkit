@@ -7,9 +7,10 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+
 import {
-  startRecording,
-  stopRecording,
+  startSpeechRecognition,
+  stopSpeechRecognition,
   addSpeechFinishedListener,
   addSpeechErrorListener,
   addSpeechResultListener,
@@ -46,7 +47,7 @@ export default function App() {
 
   const handleStartRecording = async () => {
     try {
-      await startRecording();
+      await startSpeechRecognition();
       setIsRecording(true);
       setTranscribedText('');
     } catch (error) {
@@ -55,7 +56,7 @@ export default function App() {
   };
 
   const handleStopRecording = () => {
-    stopRecording();
+    stopSpeechRecognition();
     setIsRecording(false);
     if (transcribedText) {
       setHistory((prev) => [transcribedText, ...prev]);
