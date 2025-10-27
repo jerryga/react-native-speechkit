@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Core Features
+
 - 🎤 Real-time speech recognition with partial results
 - 📼 Automatic audio recording during speech recognition
 - ▶️ Audio playback functionality
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 🔒 Complete TypeScript type definitions
 
 #### iOS Implementation
+
 - Speech recognition using Apple's Speech framework
 - Audio recording in WAV format
 - Audio playback using AVAudioPlayer
@@ -24,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Event emission for speech results, errors, and recording saved
 
 #### Android Implementation
+
 - Speech recognition using Android's SpeechRecognizer API
 - Audio recording in 3GP format using MediaRecorder
 - Audio playback using MediaPlayer
@@ -31,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper lifecycle management and resource cleanup
 
 #### API
+
 - `startRecording()` - Start speech recognition and audio recording
 - `stopRecording()` - Stop recording and save audio file
 - `playAudio(filePath)` - Play recorded audio files
@@ -39,12 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `addRecordingSavedListener()` - Subscribe to recording saved events
 
 #### Documentation
+
 - Comprehensive README with installation and usage instructions
 - Detailed USAGE.md with advanced examples
 - TypeScript type definitions
 - Platform-specific notes and troubleshooting guide
 
 ### Platform Support
+
 - iOS 10.0 and above
 - Android API 21 (Android 5.0) and above
 
@@ -53,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Future Releases
 
 ### Planned Features
+
 - [ ] Language selection support
 - [ ] Custom vocabulary support
 - [ ] Offline mode improvements
@@ -66,4 +73,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[1.0.0]: https://github.com/jerryga/react-native-speech-to-text/releases/tag/v1.0.0
+[1.0.0]: https://github.com/jerryga/react-native-speechkit/releases/tag/v1.0.0

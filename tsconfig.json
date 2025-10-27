@@ -2,7 +2,7 @@
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "react-native-speech-to-text": ["./src/index"]
+      "react-native-speechkit": ["./src/index"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,

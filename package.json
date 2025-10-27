@@ -32,7 +32,7 @@
     "!**/.*"
   ],
   "scripts": {
-    "example": "yarn workspace react-native-speech-to-text-example",
+    "example": "yarn workspace react-native-speechkit-example",
     "test": "jest",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
@@ -67,14 +67,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jerryga/react-native-speech-to-text.git"
+    "url": "git+https://github.com/jerryga/react-native-speechkit.git"
   },
   "author": "ChasonJia <chasonjia.dev@gmail.com> (https://github.com/jerryga)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jerryga/react-native-speech-to-text/issues"
+    "url": "https://github.com/jerryga/react-native-speechkit/issues"
   },
-  "homepage": "https://github.com/jerryga/react-native-speech-to-text#readme",
+  "homepage": "https://github.com/jerryga/react-native-speechkit#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

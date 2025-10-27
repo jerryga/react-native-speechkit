@@ -1,6 +1,6 @@
 # Publishing Guide
 
-Step-by-step guide for publishing new versions of react-native-speech-to-text to NPM.
+Step-by-step guide for publishing new versions of react-native-speechkit to NPM.
 
 ## Prerequisites
 

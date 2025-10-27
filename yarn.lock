@@ -10204,9 +10204,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-speech-to-text-example@workspace:example":
+"react-native-speechkit-example@workspace:example":
   version: 0.0.0-use.local
-  resolution: "react-native-speech-to-text-example@workspace:example"
+  resolution: "react-native-speechkit-example@workspace:example"
   dependencies:
     "@babel/core": ^7.25.2
     "@babel/preset-env": ^7.25.3

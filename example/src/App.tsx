@@ -15,6 +15,7 @@ import {
   addSpeechErrorListener,
   addSpeechResultListener,
 } from 'react-native-speechkit';
+
 import { PermissionsAndroid, Platform } from 'react-native';
 // Request RECORD_AUDIO permission at runtime (Android)
 async function requestMicrophonePermission() {
@@ -41,23 +42,27 @@ export default function App() {
   const [history, setHistory] = useState<string[]>([]);
 
   useEffect(() => {
-    const resultSubscription = addSpeechResultListener(({ text }) => {
-      setTranscribedText(text);
-    });
+    const resultSubscription = addSpeechResultListener(
+      (data: { text: string; isFinal: boolean }) => {
+        setTranscribedText(data.text);
+      }
+    );
 
     const finishedSubscription = addSpeechFinishedListener(
-      ({ finalResult }) => {
+      (data: { finalResult: string; audioLocalPath: string }) => {
         setIsRecording(false);
-        if (finalResult) {
-          setHistory((prev) => [finalResult, ...prev]);
+        if (data.finalResult) {
+          setHistory((prev) => [data.finalResult, ...prev]);
         }
       }
     );
 
-    const errorSubscription = addSpeechErrorListener(({ error }) => {
-      Alert.alert('Speech Error', error);
-      setIsRecording(false);
-    });
+    const errorSubscription = addSpeechErrorListener(
+      (data: { error: string }) => {
+        Alert.alert('Speech Error', data.error);
+        setIsRecording(false);
+      }
+    );
 
     return () => {
       finishedSubscription.remove();
