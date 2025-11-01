@@ -65,7 +65,6 @@ async function requestMicrophonePermission() {
 
 ---
 
-
 ## 🚀 Usage
 
 ```js
@@ -75,6 +74,7 @@ import {
   addSpeechResultListener,
   addSpeechErrorListener,
   addSpeechFinishedListener,
+  playAudio,
 } from 'react-native-speechkit';
 
 // Start speech recognition (optionally pass fileURLString and autoStopAfter in ms)
@@ -93,7 +93,14 @@ const errorSub = addSpeechErrorListener(({ error }) => {
 // Listen for finished event (final result and audio path)
 const finishedSub = addSpeechFinishedListener(({ finalResult, audioLocalPath }) => {
   console.log('Final result:', finalResult, 'Audio file:', audioLocalPath);
+  // Play the recorded audio
+  if (audioLocalPath) {
+    playAudio(audioLocalPath);
+  }
 });
+### `playAudio(filePath: string): Promise<string>`
+
+Play an audio file at the given path (local file or URL). Returns a promise that resolves when playback starts.
 
 // Stop recognition
 stopSpeechRecognition();
@@ -105,7 +112,6 @@ finishedSub.remove();
 ```
 
 ---
-
 
 ## 🧩 API Reference
 
@@ -131,7 +137,6 @@ Subscribe to the finished event, which provides the final recognized text and th
 
 ---
 
-
 ## 📝 Example
 
 ```js
@@ -143,6 +148,7 @@ import {
   addSpeechResultListener,
   addSpeechErrorListener,
   addSpeechFinishedListener,
+  playAudio,
 } from 'react-native-speechkit';
 
 export default function App() {
@@ -155,11 +161,13 @@ export default function App() {
       setText(text + (isFinal ? ' (final)' : ''));
     });
     const errorSub = addSpeechErrorListener(() => setIsRecording(false));
-    const finishedSub = addSpeechFinishedListener(({ finalResult, audioLocalPath }) => {
-      setText(finalResult);
-      setAudioPath(audioLocalPath);
-      setIsRecording(false);
-    });
+    const finishedSub = addSpeechFinishedListener(
+      ({ finalResult, audioLocalPath }) => {
+        setText(finalResult);
+        setAudioPath(audioLocalPath);
+        setIsRecording(false);
+      }
+    );
     return () => {
       resultSub.remove();
       errorSub.remove();
@@ -185,6 +193,9 @@ export default function App() {
               }
         }
       />
+      {audioPath ? (
+        <Button title="Play Audio" onPress={() => playAudio(audioPath)} />
+      ) : null}
     </View>
   );
 }

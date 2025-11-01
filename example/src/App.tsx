@@ -14,7 +14,9 @@ import {
   addSpeechFinishedListener,
   addSpeechErrorListener,
   addSpeechResultListener,
+  playAudio,
 } from 'react-native-speechkit';
+import { NativeModules } from 'react-native';
 
 import { PermissionsAndroid, Platform } from 'react-native';
 // Request RECORD_AUDIO permission at runtime (Android)
@@ -39,9 +41,13 @@ async function requestMicrophonePermission() {
 export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
-  const [history, setHistory] = useState<string[]>([]);
+  // Store both text and audio path in history
+  const [history, setHistory] = useState<
+    { text: string; audioPath?: string }[]
+  >([]);
 
   useEffect(() => {
+    console.log('NativeModules:', NativeModules);
     const resultSubscription = addSpeechResultListener(
       (data: { text: string; isFinal: boolean }) => {
         setTranscribedText(data.text);
@@ -52,7 +58,10 @@ export default function App() {
       (data: { finalResult: string; audioLocalPath: string }) => {
         setIsRecording(false);
         if (data.finalResult) {
-          setHistory((prev) => [data.finalResult, ...prev]);
+          setHistory((prev) => [
+            { text: data.finalResult, audioPath: data.audioLocalPath },
+            ...prev,
+          ]);
         }
       }
     );
@@ -90,7 +99,7 @@ export default function App() {
     stopSpeechRecognition();
     setIsRecording(false);
     if (transcribedText) {
-      setHistory((prev) => [transcribedText, ...prev]);
+      setHistory((prev) => [{ text: transcribedText }, ...prev]);
     }
   };
 
@@ -135,10 +144,23 @@ export default function App() {
         <View style={styles.historyContainer}>
           <Text style={styles.label}>History:</Text>
           <ScrollView style={styles.historyList}>
-            {history.map((text, index) => (
-              <View key={index} style={styles.historyItem}>
-                <Text style={styles.historyText}>{text}</Text>
-              </View>
+            {history.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.historyItem}
+                onPress={() => {
+                  if (item.audioPath) {
+                    playAudio(item.audioPath);
+                  } else {
+                    Alert.alert(
+                      'No audio',
+                      'No audio file available for this entry.'
+                    );
+                  }
+                }}
+              >
+                <Text style={styles.historyText}>{item.text}</Text>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         </View>

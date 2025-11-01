@@ -1,7 +1,13 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import SpeechToText from './NativeSpeechToText';
 
-export { SpeechToText };
+export function playAudio(filePath: string): Promise<string> {
+  return SpeechToText.playAudio(filePath);
+}
+
+export function stopAudio(): void {
+  SpeechToText.stopAudio();
+}
 
 export interface SpeechResultListener {
   (data: { text: string; isFinal: boolean }): void;

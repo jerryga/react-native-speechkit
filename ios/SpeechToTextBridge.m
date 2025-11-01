@@ -10,4 +10,11 @@ RCT_EXTERN_METHOD(startSpeechRecognition:(NSString *)fileURLString
 
 RCT_EXTERN_METHOD(stopSpeechRecognition)
 
+RCT_EXTERN_METHOD(playAudio:(NSString *)filePath
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(stopAudio:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+
 @end

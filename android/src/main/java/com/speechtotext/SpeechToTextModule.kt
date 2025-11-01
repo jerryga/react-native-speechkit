@@ -19,6 +19,7 @@ import java.util.*
 class SpeechToTextModule(private val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext), RecognitionListener {
 
+  private var mediaPlayer: android.media.MediaPlayer? = null
   private var speechRecognizer: SpeechRecognizer? = null
   private var recognizerIntent: android.content.Intent? = null
   private var mediaRecorder: MediaRecorder? = null
@@ -36,10 +37,17 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext) :
   fun startSpeechRecognition(fileURLString: String?, autoStopAfter: Int?, promise: Promise) {
     val ctx = reactApplicationContext
 
-    // Check permission
-    val hasPermission = ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) ==
+    // Check permissions
+    val hasRecordPermission =
+      ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) ==
         PermissionChecker.PERMISSION_GRANTED
-    if (!hasPermission) {
+    val hasStoragePermission =
+      ContextCompat.checkSelfPermission(ctx, Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+        PermissionChecker.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_EXTERNAL_STORAGE) ==
+        PermissionChecker.PERMISSION_GRANTED
+
+    if (!hasRecordPermission) {
       promise.reject("E_PERMISSION", "RECORD_AUDIO permission denied")
       return
     }
@@ -136,8 +144,9 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext) :
       try {
         speechRecognizer?.stopListening()
       } catch (_: Exception) {}
-      speechRecognizer?.stopListening()
-      speechRecognizer?.destroy()
+      try {
+        speechRecognizer?.destroy()
+      } catch (_: Exception) {}
       speechRecognizer = null
 
       stopMediaRecorderSafely()
@@ -146,10 +155,15 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext) :
         putString("finalResult", finalTranscription)
         putString("audioLocalPath", audioFile?.absolutePath ?: "")
       }
-      sendEvent("onSpeechRecognitionFinished", result)
+      reactContext.runOnUiQueueThread {
+        sendEvent("onSpeechRecognitionFinished", result)
+      }
 
-      finalTranscription = ""
-      audioFile = null
+      // Delay reset slightly to avoid race with async result callbacks
+      handler.postDelayed({
+        finalTranscription = ""
+        audioFile = null
+      }, 500)
     }
   }
 
@@ -160,7 +174,7 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext) :
   }
 
   // ----------------------------------------------------------
-  // RecognitionListener Callbacks
+  // RecognitionListener Callbacks (thread-safe)
   // ----------------------------------------------------------
   override fun onReadyForSpeech(params: Bundle?) {}
   override fun onBeginningOfSpeech() {}
@@ -181,11 +195,14 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext) :
       SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "ERROR_SPEECH_TIMEOUT"
       else -> "ERROR_UNKNOWN"
     }
-    // send the string message directly
-     val map = Arguments.createMap().apply {
+
+    val map = Arguments.createMap().apply {
       putString("error", msg)
     }
-    sendEvent("onSpeechRecognitionError", map)
+
+    reactContext.runOnUiQueueThread {
+      sendEvent("onSpeechRecognitionError", map)
+    }
   }
 
   override fun onResults(results: Bundle?) {
@@ -196,7 +213,9 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext) :
       putString("text", text)
       putBoolean("isFinal", true)
     }
-    sendEvent("onSpeechRecognitionResult", map)
+    reactContext.runOnUiQueueThread {
+      sendEvent("onSpeechRecognitionResult", map)
+    }
   }
 
   override fun onPartialResults(partialResults: Bundle?) {
@@ -207,21 +226,74 @@ class SpeechToTextModule(private val reactContext: ReactApplicationContext) :
       putString("text", text)
       putBoolean("isFinal", false)
     }
-    sendEvent("onSpeechRecognitionResult", map)
+    reactContext.runOnUiQueueThread {
+      sendEvent("onSpeechRecognitionResult", map)
+    }
+  }
+
+  // ----------------------------------------------------------
+  // Play/Stop Audio Support
+  // ----------------------------------------------------------
+  @ReactMethod
+  fun playAudio(filePath: String, promise: Promise) {
+    try {
+      mediaPlayer?.release()
+      mediaPlayer = android.media.MediaPlayer().apply {
+        setDataSource(filePath)
+
+        setOnPreparedListener {
+          it.start()
+          reactContext.runOnUiQueueThread {
+            promise.resolve("Audio playback started")
+          }
+        }
+
+        setOnErrorListener { mp, what, extra ->
+          reactContext.runOnUiQueueThread {
+            promise.reject("E_PLAY", "Failed to play audio: what=$what, extra=$extra")
+          }
+          mp.release()
+          mediaPlayer = null
+          true
+        }
+
+        prepareAsync()
+      }
+    } catch (e: Exception) {
+      mediaPlayer?.release()
+      mediaPlayer = null
+      promise.reject("E_PLAY", "Failed to play audio: ${e.message}", e)
+    }
+  }
+
+  @ReactMethod
+  fun stopAudio(promise: Promise) {
+    try {
+      mediaPlayer?.let {
+        if (it.isPlaying) {
+          it.stop()
+        }
+        it.release()
+        mediaPlayer = null
+        promise.resolve("Audio playback stopped")
+      } ?: promise.reject("E_STOP", "No audio is playing")
+    } catch (e: Exception) {
+      promise.reject("E_STOP", "Failed to stop audio: ${e.message}", e)
+    }
   }
 
   override fun onEvent(eventType: Int, params: Bundle?) {}
 
   // ----------------------------------------------------------
-  // Lifecycle cleanup
+  // Lifecycle cleanup (fixed order)
   // ----------------------------------------------------------
   override fun onCatalystInstanceDestroy() {
+    super.onCatalystInstanceDestroy()
     handler.post {
       try {
         speechRecognizer?.destroy()
       } catch (_: Exception) {}
       stopMediaRecorderSafely()
-      super.onCatalystInstanceDestroy()
     }
   }
 }

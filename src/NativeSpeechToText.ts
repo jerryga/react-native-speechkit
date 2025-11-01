@@ -6,6 +6,8 @@ export interface Spec extends TurboModule {
     autoStopAfter: number | null
   ): Promise<string>;
   stopSpeechRecognition(): void;
+  playAudio(filePath: string): Promise<string>;
+  stopAudio(): void;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('SpeechToText');

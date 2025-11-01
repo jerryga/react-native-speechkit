@@ -13,12 +13,15 @@ class SpeechToText: RCTEventEmitter {
   private var finalTranscription: String = ""
   private var stopTimer: DispatchWorkItem?
 
+  private var audioPlayer: AVAudioPlayer?
+
   override static func requiresMainQueueSetup() -> Bool { true }
   private func getDocumentsDirectory() -> URL {
-    return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
   }
+  
   override func supportedEvents() -> [String]! {
-    ["onSpeechRecognitionResult", "onSpeechRecognitionError", "onSpeechRecognitionFinished"]
+    ["onSpeechRecognitionResult", "onSpeechRecognitionError", "onSpeechRecognitionFinished", "playAudio", "stopAudio"]
   }
 
   @objc func startSpeechRecognition(
@@ -43,24 +46,21 @@ class SpeechToText: RCTEventEmitter {
         return
       }
       DispatchQueue.main.async {
-        let startWork = {
-          do {
-            try self.startSession(fileURLOverride: providedFileURL)
-            resolve("Recording started")
-            if autoStopSeconds > 0 {
-              // Cancel any existing timer before scheduling a new one
-              self.stopTimer?.cancel()
-              let work = DispatchWorkItem { [weak self] in
-                self?.stopSpeechRecognition()
-              }
-              self.stopTimer = work
-              DispatchQueue.main.asyncAfter(deadline: .now() + autoStopSeconds, execute: work)
+        do {
+          try self.startSession(fileURLOverride: providedFileURL)
+          resolve("Recording started")
+
+          if autoStopSeconds > 0 {
+            self.stopTimer?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+              self?.stopSpeechRecognition()
             }
-          } catch {
-            reject("E_START", "Failed to start", error)
+            self.stopTimer = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + autoStopSeconds, execute: work)
           }
+        } catch {
+          reject("E_START", "Failed to start recognition: \(error.localizedDescription)", error)
         }
-        startWork()
       }
     }
   }
@@ -147,12 +147,15 @@ class SpeechToText: RCTEventEmitter {
     recognitionTask = nil
     request = nil
 
-    // Deactivate audio session once
-    do {
-      try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-    } catch {
-      print("Error deactivating audio session: \(error)")
-    }
+    DispatchQueue.main.async {
+       do {
+         let session = AVAudioSession.sharedInstance()
+         try session.setCategory(.playback, mode: .default)
+         try session.setActive(true)
+       } catch {
+         print("Error switching to playback session: \(error)")
+       }
+     }
 
     let audioLocalPath = audioFile?.url.path ?? ""
     audioFile = nil
@@ -165,6 +168,51 @@ class SpeechToText: RCTEventEmitter {
         "audioLocalPath": audioLocalPath,
       ])
 
-    finalTranscription = ""
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+      self?.finalTranscription = ""
+    }
+  }
+
+  @objc func playAudio(
+    _ filePath: NSString,
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    let url = URL(fileURLWithPath: filePath as String)
+
+    DispatchQueue.main.async {
+      do {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .default)
+        try session.setActive(true)
+
+        if let player = self.audioPlayer, player.isPlaying {
+          player.stop()
+        }
+
+        self.audioPlayer = try AVAudioPlayer(contentsOf: url)
+        self.audioPlayer?.prepareToPlay()
+        self.audioPlayer?.play()
+
+        resolve("Audio playback started")
+      } catch {
+        reject("E_PLAY", "Failed to play audio: \(error.localizedDescription)", error)
+      }
+    }
+  }
+
+
+  @objc func stopAudio(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    if let player = audioPlayer, player.isPlaying {
+      player.stop()
+      audioPlayer = nil
+      resolve("Audio playback stopped")
+    }
+  }
+  
+  deinit {
+    audioEngine.stop()
+    recognitionTask?.finish()
+    audioPlayer?.stop()
   }
 }
