@@ -1,6 +1,6 @@
 {
   "name": "react-native-speechkit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A powerful React Native library for real-time speech recognition with audio recording and playback capabilities for iOS and Android",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
