@@ -18,6 +18,12 @@
 
 ---
 
+## 🎬 Demo
+
+<video src="./assets/example.MP4" controls style="max-width: 100%;"></video>
+
+---
+
 ## 📦 Installation
 
 ```sh

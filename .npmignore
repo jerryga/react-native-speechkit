@@ -33,6 +33,9 @@ lefthook.yml
 CONTRIBUTING.md
 CODE_OF_CONDUCT.md
 
+# Assets (demo videos, etc.)
+assets/
+
 # Build artifacts
 android/build/
 ios/build/

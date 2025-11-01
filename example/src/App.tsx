@@ -98,9 +98,6 @@ export default function App() {
   const handleStopRecording = () => {
     stopSpeechRecognition();
     setIsRecording(false);
-    if (transcribedText) {
-      setHistory((prev) => [{ text: transcribedText }, ...prev]);
-    }
   };
 
   return (
@@ -159,7 +156,10 @@ export default function App() {
                   }
                 }}
               >
-                <Text style={styles.historyText}>{item.text}</Text>
+                <View style={styles.historyItemContent}>
+                  <Text style={styles.playIcon}>▶️</Text>
+                  <Text style={styles.historyText}>{item.text}</Text>
+                </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -259,8 +259,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
+  historyItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  playIcon: {
+    fontSize: 16,
+  },
   historyText: {
     fontSize: 14,
     color: '#666',
+    flex: 1,
   },
 });
